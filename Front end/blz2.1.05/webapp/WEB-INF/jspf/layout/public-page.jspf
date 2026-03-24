@@ -1,0 +1,27 @@
+﻿<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%
+String layoutTitle = (String) request.getAttribute("pageTitle");
+String pageContent = (String) request.getAttribute("pageContent");
+String pageScriptPath = (String) request.getAttribute("pageScriptPath");
+%>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= layoutTitle %></title>
+    <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+    <div class="page-shell">
+        <%@ include file="../public-nav.jspf" %>
+        <%
+        if (pageContent != null) {
+            pageContext.include(pageContent);
+        }
+        %>
+        <%@ include file="../public-footer.jspf" %>
+    </div>
+    <script src="<%= pageScriptPath == null ? "assets/js/site.js" : pageScriptPath %>"></script>
+</body>
+</html>

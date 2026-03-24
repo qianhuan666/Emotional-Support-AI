@@ -1,0 +1,33 @@
+﻿<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<header class="site-header">
+    <div class="container nav-shell">
+        <a class="brand" href="index.jsp">
+            <span class="brand-mark">心</span>
+            <span class="brand-copy">
+                <span>心晴疗愈</span>
+                <small>Mindful Healing Platform</small>
+            </span>
+        </a>
+
+        <button class="menu-toggle" type="button" aria-expanded="false" data-menu-toggle>☰</button>
+
+        <nav class="nav-links" data-nav-links>
+            <a class="nav-link <%= "home".equals(currentPage) ? "active" : "" %>" href="index.jsp">首页</a>
+            <a class="nav-link <%= "about".equals(currentPage) ? "active" : "" %>" href="about.jsp">平台介绍</a>
+            <a class="nav-link <%= "programs".equals(currentPage) ? "active" : "" %>" href="programs.jsp">疗愈方案</a>
+            <a class="nav-link <%= "resources".equals(currentPage) ? "active" : "" %>" href="resources.jsp">资源中心</a>
+            <a class="nav-link <%= "contact".equals(currentPage) ? "active" : "" %>" href="contact.jsp">联系我们</a>
+        </nav>
+
+        <div class="nav-cta">
+            <a class="link-btn link-ghost" href="login.jsp">登录</a>
+            <a class="link-btn link-primary" href="register.jsp">注册</a>
+        </div>
+    </div>
+
+    <div class="announcement-bar">
+        <div class="container">
+            <strong>温馨提示：</strong> 本平台用于日常心理支持、自助练习与陪伴式管理，不替代紧急医疗服务；如遇即时危险，请优先联系当地急救资源。
+        </div>
+    </div>
+</header>

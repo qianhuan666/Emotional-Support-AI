@@ -1,0 +1,63 @@
+﻿<main>
+    <section class="hero-section">
+        <div class="container hero-grid">
+            <div class="hero-copy">
+                <div class="eyebrow">Psychological Healing Platform</div>
+                <h1>给情绪一个被看见、被陪伴、被慢慢修复的地方。</h1>
+                <p>
+                    心晴疗愈是一个面向个人、家庭与机构的心理支持平台原型，围绕情绪签到、呼吸放松、自我记录、资源学习和 AI 陪伴来设计。
+                </p>
+                <div class="hero-actions">
+                    <a class="link-btn link-primary" href="register.jsp">立即开始体验</a>
+                    <a class="link-btn link-ghost" href="programs.jsp">查看疗愈方案</a>
+                </div>
+                <div class="hero-highlights">
+                    <div class="pill">多页面官网结构</div>
+                    <div class="pill">登录后进入工作台</div>
+                    <div class="pill">支持 AI 对话与数据持久化</div>
+                </div>
+            </div>
+
+            <div class="hero-card">
+                <div class="grid-2">
+                    <div class="metric-card warm">
+                        <span>官网模块</span>
+                        <strong>5 页</strong>
+                        <p>首页、介绍、方案、资源、联系，符合常见平台官网结构。</p>
+                    </div>
+                    <div class="metric-card cool">
+                        <span>核心能力</span>
+                        <strong>6 项</strong>
+                        <p>签到、呼吸、记录、计划、资源、AI 对话。</p>
+                    </div>
+                    <div class="metric-card purple">
+                        <span>会员体验</span>
+                        <strong>1 站式</strong>
+                        <p>登录后进入工作台，逐步形成持续使用路径。</p>
+                    </div>
+                    <div class="panel-card">
+                        <span class="card-tag">设计方向</span>
+                        <h3>像官网，也像产品入口</h3>
+                        <p>前台负责建立信任，后台工作台和 AI 页面负责承接用户真正的互动体验。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <div class="section-head">
+                <div class="section-label">为什么这样设计</div>
+                <h2>我们先从真实支持场景出发，再决定页面和功能怎么组织。</h2>
+                <p class="section-subtitle">一个成熟的平台官网，不只是展示自己是谁，还要回答“能解决什么、怎么开始、为什么值得信任”。</p>
+            </div>
+
+            <div class="grid-3">
+                <article class="info-card"><span class="card-tag">情绪识别</span><h3>情绪签到</h3><p>从一个简单动作开始，帮助用户更快回到自我觉察，而不是立刻进入复杂流程。</p></article>
+                <article class="info-card"><span class="card-tag">即时调节</span><h3>呼吸与放松</h3><p>提供可以立刻开始的支持工具，让页面不只是讲道理，也能马上陪伴用户。</p></article>
+                <article class="info-card"><span class="card-tag">持续沉淀</span><h3>记录与计划</h3><p>让体验不止停留在一次访问，而是能逐渐积累成一条可持续的恢复路径。</p></article>
+            </div>
+        </div>
+    </section>
+</main>

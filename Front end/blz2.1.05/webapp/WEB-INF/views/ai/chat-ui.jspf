@@ -1,0 +1,60 @@
+﻿<div class="app">
+    <header class="topbar">
+        <div class="brand">
+            <div class="mark">AI</div>
+            <div>
+                <h1>AI 陪伴</h1>
+                <p>把最近的一次对话、最近的一个问题，安静地说出来。</p>
+            </div>
+        </div>
+        <div class="top-actions">
+            <button class="ghost" id="newChatBtn" type="button">新建对话</button>
+            <div class="chip online" id="statusChip">已登录</div>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <section class="panel">
+            <div class="hero">
+                <h2>慢一点，也没关系</h2>
+                <p>这里保留最近会话，也支持重新开始。AI 只负责陪伴，不替代专业医疗建议。</p>
+            </div>
+            <div class="messages" id="messagesScroll">
+                <div class="empty" id="emptyState">
+                    <div class="empty-card">
+                        <h3>从一句近况开始就可以</h3>
+                        <p>例如：我今天有点累，但不知道怎么停下来。或者：我最近总在担心一件事。</p>
+                    </div>
+                </div>
+                <div class="list hidden" id="messageList"></div>
+            </div>
+            <div class="composer">
+                <div class="box">
+                    <textarea id="messageInput" placeholder="想说什么都可以，慢一点也没关系。"></textarea>
+                    <div class="composer-actions">
+                        <button class="ghost hidden" id="stopBtn" type="button">停止生成</button>
+                        <button class="primary" id="sendBtn" type="button">发送</button>
+                    </div>
+                </div>
+                <div class="hint">
+                    <span>Enter 发送，Shift + Enter 换行</span>
+                    <span id="charCounter">0 / 1000</span>
+                </div>
+            </div>
+        </section>
+
+        <aside class="side">
+            <section class="side-card">
+                <h3>当前会话</h3>
+                <div class="metrics">
+                    <div class="metric"><strong id="messageCount">0</strong><span>消息条数</span></div>
+                    <div class="metric"><strong id="storageState">数据库</strong><span>数据位置</span></div>
+                </div>
+            </section>
+            <section class="side-card">
+                <h3>最近会话</h3>
+                <div id="conversationList" class="conversation-list"></div>
+            </section>
+        </aside>
+    </main>
+</div>

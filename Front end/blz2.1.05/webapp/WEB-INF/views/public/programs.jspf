@@ -1,0 +1,22 @@
+﻿<main>
+    <section class="page-hero">
+        <div class="container">
+            <div class="page-hero-card">
+                <div class="section-label">Healing Programs</div>
+                <h1>把心理支持拆成用户真正愿意每天使用的几个小模块。</h1>
+                <p>疗愈方案页负责把平台能力解释清楚，让用户在登录前就知道：进入之后到底能做什么。</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container grid-3">
+            <article class="info-card"><span class="card-tag">01</span><h3>情绪签到</h3><p>帮助用户快速识别今天的情绪状态，降低开始门槛。</p></article>
+            <article class="info-card"><span class="card-tag">02</span><h3>呼吸练习</h3><p>用 1 分钟练习把抽象支持变成可以立刻开始的动作。</p></article>
+            <article class="info-card"><span class="card-tag">03</span><h3>疗愈记录</h3><p>把模糊的情绪变成可回看、可整理的文字线索。</p></article>
+            <article class="info-card"><span class="card-tag">04</span><h3>支持计划</h3><p>把“我想好起来”拆成今天真的能完成的小步骤。</p></article>
+            <article class="info-card"><span class="card-tag">05</span><h3>资源中心</h3><p>提供 FAQ、边界说明和继续了解的平台内容。</p></article>
+            <article class="info-card"><span class="card-tag">06</span><h3>AI 陪伴</h3><p>通过对话入口为用户提供更自然的陪伴式交流体验。</p></article>
+        </div>
+    </section>
+</main>

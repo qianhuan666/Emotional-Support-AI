@@ -1,0 +1,21 @@
+﻿<main>
+    <section class="page-hero">
+        <div class="container">
+            <div class="page-hero-card">
+                <div class="section-label">About The Platform</div>
+                <h1>我们把“心理支持平台”理解为：可解释、可开始、可坚持、可升级的支持系统。</h1>
+                <p>与单纯的内容站不同，心晴疗愈既要承担官网展示功能，也要承担产品入口功能，所以平台介绍页必须说明它能做什么、不能做什么、适合哪些人使用。</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container">
+            <div class="grid-3">
+                <article class="info-card"><span class="card-tag">理念一</span><h3>先稳定，再深入</h3><p>平台优先提供可立即开始的支持动作，而不是一上来就把用户带进复杂流程。</p></article>
+                <article class="info-card"><span class="card-tag">理念二</span><h3>先陪伴，再转介</h3><p>当问题超出平台边界时，再清楚引导用户走向更专业的帮助。</p></article>
+                <article class="info-card"><span class="card-tag">理念三</span><h3>先建立信任，再鼓励使用</h3><p>官网里的介绍、FAQ 和边界说明，本身就是产品体验的一部分。</p></article>
+            </div>
+        </div>
+    </section>
+</main>

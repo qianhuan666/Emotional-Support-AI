@@ -1,0 +1,41 @@
+﻿<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<footer class="footer">
+    <div class="container">
+        <div class="footer-card">
+            <div>
+                <div class="brand">
+                    <span class="brand-mark">心</span>
+                    <span class="brand-copy">
+                        <span>心晴疗愈</span>
+                        <small>让支持更温和，也更可持续</small>
+                    </span>
+                </div>
+                <p class="footer-copy">
+                    这个项目把官网展示、工作台体验和 AI 陪伴串在一起，方便后续继续扩展成更完整的真实产品。
+                </p>
+                <div class="copyright">© 2026 心晴疗愈 Demo</div>
+            </div>
+
+            <div>
+                <h3>快速导航</h3>
+                <ul class="footer-links">
+                    <li><a href="index.jsp">首页</a></li>
+                    <li><a href="about.jsp">平台介绍</a></li>
+                    <li><a href="programs.jsp">疗愈方案</a></li>
+                    <li><a href="resources.jsp">资源中心</a></li>
+                    <li><a href="contact.jsp">联系我们</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h3>功能入口</h3>
+                <ul class="footer-links">
+                    <li><a href="login.jsp">登录账号</a></li>
+                    <li><a href="register.jsp">注册新用户</a></li>
+                    <li><a href="dashboard.jsp">工作台</a></li>
+                    <li><a href="blz.jsp">AI 陪伴</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</footer>

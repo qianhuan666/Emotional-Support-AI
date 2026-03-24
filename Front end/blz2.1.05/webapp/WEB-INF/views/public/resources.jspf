@@ -1,0 +1,47 @@
+﻿<main>
+    <section class="page-hero">
+        <div class="container">
+            <div class="page-hero-card">
+                <div class="section-label">Resources & FAQ</div>
+                <h1>资源中心负责建立信任，也负责告诉用户“下一步可以做什么”。</h1>
+                <p>成熟的平台不会只有一个登录按钮，还要有解释、边界、FAQ 和危机支持说明。</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container resource-grid">
+            <article class="info-card"><span class="card-tag">主题 01</span><h3>压力与焦虑自助</h3><p>适合放入呼吸练习、地面化方法和日常节奏建议。</p></article>
+            <article class="info-card"><span class="card-tag">主题 02</span><h3>睡眠与恢复</h3><p>适合扩展睡前流程、作息调整和恢复感建立建议。</p></article>
+            <article class="info-card"><span class="card-tag">主题 03</span><h3>书写与表达</h3><p>适合整理感受、命名情绪和记录变化过程。</p></article>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="container faq-grid">
+            <article class="faq-card">
+                <div class="section-label">常见问题</div>
+                <h2>FAQ</h2>
+                <details open>
+                    <summary>这个平台适合哪些用户？</summary>
+                    <p>适合有压力管理、情绪波动、睡眠困扰或自我照顾需求的人群。</p>
+                </details>
+                <details>
+                    <summary>它能替代专业心理咨询吗？</summary>
+                    <p>不能。平台更适合作为日常支持入口，而不是医疗和诊断替代品。</p>
+                </details>
+            </article>
+
+            <article class="faq-card">
+                <div class="section-label">安全提醒</div>
+                <h2>危机支持说明</h2>
+                <p>如果你或身边的人正处于即时危险、自伤或伤人风险中，请优先联系当地急救资源、医院或危机热线。</p>
+                <ul class="support-list">
+                    <li>请根据所在地寻找当地紧急求助电话</li>
+                    <li>不要在危机状态下单独依赖平台</li>
+                    <li>必要时请立即联系真实的人和真实机构</li>
+                </ul>
+            </article>
+        </div>
+    </section>
+</main>

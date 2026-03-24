@@ -1,0 +1,23 @@
+﻿<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%
+String layoutTitle = (String) request.getAttribute("pageTitle");
+String pageContent = (String) request.getAttribute("pageContent");
+String bodyAttributes = (String) request.getAttribute("pageBodyAttributes");
+%>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= layoutTitle %></title>
+    <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body class="workspace-page" <%= bodyAttributes == null ? "" : bodyAttributes %>>
+    <%
+    if (pageContent != null) {
+        pageContext.include(pageContent);
+    }
+    %>
+    <script src="assets/js/dashboard-db.js"></script>
+</body>
+</html>

@@ -1,0 +1,206 @@
+<%@ page import="java.sql.*,java.nio.charset.StandardCharsets,java.security.MessageDigest,java.security.NoSuchAlgorithmException" %>
+<%!
+    private static final String JDBC_DRIVER = "com.mysql.cj.jdbc.Driver";
+    private static final String DB_READY_ATTRIBUTE = "app.db.ready";
+
+    private String getConfig(ServletContext application, String envKey, String initParamKey) {
+        String value = System.getenv(envKey);
+        if (value != null && !value.trim().isEmpty()) {
+            return value.trim();
+        }
+
+        value = application.getInitParameter(initParamKey);
+        if (value != null && !value.trim().isEmpty()) {
+            return value.trim();
+        }
+
+        return null;
+    }
+
+    private String requireConfig(ServletContext application, String envKey, String initParamKey) {
+        String value = getConfig(application, envKey, initParamKey);
+        if (value == null) {
+            throw new IllegalStateException("Missing database config: " + envKey + " / " + initParamKey);
+        }
+        return value;
+    }
+
+    private Connection openConnection(ServletContext application) throws SQLException, ClassNotFoundException {
+        String jdbcUrl = requireConfig(application, "APP_DB_URL", "app.db.url");
+        String jdbcUser = requireConfig(application, "APP_DB_USER", "app.db.user");
+        String jdbcPassword = requireConfig(application, "APP_DB_PASSWORD", "app.db.password");
+
+        Class.forName(JDBC_DRIVER);
+        return DriverManager.getConnection(jdbcUrl, jdbcUser, jdbcPassword);
+    }
+
+    private String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder builder = new StringBuilder(hash.length * 2);
+            for (byte item : hash) {
+                String hex = Integer.toHexString(item & 0xff);
+                if (hex.length() == 1) {
+                    builder.append('0');
+                }
+                builder.append(hex);
+            }
+            return builder.toString();
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is not available", ex);
+        }
+    }
+
+    private void createUsersTable(Connection connection) throws SQLException {
+        Statement statement = null;
+        try {
+            statement = connection.createStatement();
+            statement.execute(
+                "CREATE TABLE IF NOT EXISTS users (" +
+                " id BIGINT PRIMARY KEY AUTO_INCREMENT," +
+                " username VARCHAR(64) NOT NULL UNIQUE," +
+                " password_hash CHAR(64) NOT NULL," +
+                " display_name VARCHAR(100) NULL," +
+                " status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE'," +
+                " created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                " updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" +
+                ")"
+            );
+        } finally {
+            if (statement != null) {
+                statement.close();
+            }
+        }
+    }
+
+    private void seedDefaultUser(Connection connection, String username, String password, String displayName) throws SQLException {
+        PreparedStatement statement = null;
+        try {
+            statement = connection.prepareStatement(
+                "INSERT INTO users (username, password_hash, display_name, status) " +
+                "SELECT ?, ?, ?, 'ACTIVE' FROM DUAL " +
+                "WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = ?)"
+            );
+            statement.setString(1, username);
+            statement.setString(2, sha256(password));
+            statement.setString(3, displayName);
+            statement.setString(4, username);
+            statement.executeUpdate();
+        } finally {
+            if (statement != null) {
+                statement.close();
+            }
+        }
+    }
+
+    private void ensureDatabaseReady(ServletContext application) throws SQLException, ClassNotFoundException {
+        if (Boolean.TRUE.equals(application.getAttribute(DB_READY_ATTRIBUTE))) {
+            return;
+        }
+
+        synchronized (application) {
+            if (Boolean.TRUE.equals(application.getAttribute(DB_READY_ATTRIBUTE))) {
+                return;
+            }
+
+            Connection connection = null;
+            try {
+                connection = openConnection(application);
+                createUsersTable(connection);
+                seedDefaultUser(connection, "demo", "demo123", "Demo User");
+                seedDefaultUser(connection, "admin", "123456", "Admin");
+                application.setAttribute(DB_READY_ATTRIBUTE, Boolean.TRUE);
+            } finally {
+                if (connection != null) {
+                    connection.close();
+                }
+            }
+        }
+    }
+
+    private boolean verifyUser(ServletContext application, String username, String password) throws SQLException, ClassNotFoundException {
+        ensureDatabaseReady(application);
+
+        Connection connection = null;
+        PreparedStatement statement = null;
+        ResultSet resultSet = null;
+
+        try {
+            connection = openConnection(application);
+            statement = connection.prepareStatement(
+                "SELECT password_hash FROM users WHERE username = ? AND status = 'ACTIVE'"
+            );
+            statement.setString(1, username);
+            resultSet = statement.executeQuery();
+
+            if (!resultSet.next()) {
+                return false;
+            }
+
+            String storedPasswordHash = resultSet.getString("password_hash");
+            return sha256(password).equalsIgnoreCase(storedPasswordHash);
+        } finally {
+            if (resultSet != null) {
+                resultSet.close();
+            }
+            if (statement != null) {
+                statement.close();
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        }
+    }
+
+    private boolean userExists(ServletContext application, String username) throws SQLException, ClassNotFoundException {
+        ensureDatabaseReady(application);
+
+        Connection connection = null;
+        PreparedStatement statement = null;
+        ResultSet resultSet = null;
+
+        try {
+            connection = openConnection(application);
+            statement = connection.prepareStatement("SELECT 1 FROM users WHERE username = ?");
+            statement.setString(1, username);
+            resultSet = statement.executeQuery();
+            return resultSet.next();
+        } finally {
+            if (resultSet != null) {
+                resultSet.close();
+            }
+            if (statement != null) {
+                statement.close();
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        }
+    }
+
+    private void registerUser(ServletContext application, String username, String password) throws SQLException, ClassNotFoundException {
+        ensureDatabaseReady(application);
+
+        Connection connection = null;
+        PreparedStatement statement = null;
+
+        try {
+            connection = openConnection(application);
+            statement = connection.prepareStatement(
+                "INSERT INTO users (username, password_hash, display_name, status) VALUES (?, ?, ?, 'ACTIVE')"
+            );
+            statement.setString(1, username);
+            statement.setString(2, sha256(password));
+            statement.setString(3, username);
+            statement.executeUpdate();
+        } finally {
+            if (statement != null) {
+                statement.close();
+            }
+            if (connection != null) {
+                connection.close();
+            }
+        }
+    }
+%>
