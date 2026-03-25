@@ -529,23 +529,111 @@
         return;
     }
 
-    if ("POST".equalsIgnoreCase(request.getMethod()) && "chat".equals(request.getParameter("action"))) {
-        String messagesJson = request.getParameter("messages");
-        String prompt = request.getParameter("prompt");
-        Long requestedConversationId = parseConversationId(request.getParameter("conversationId"));
-        if (messagesJson == null || messagesJson.trim().isEmpty()) {
-            response.setStatus(400);
-            response.setContentType("text/plain; charset=UTF-8");
-            response.getWriter().write("messages is required");
-            return;
-        }
-        if (apiEndpoint == null || apiModel == null || apiKey == null) {
-            response.setStatus(500);
-            response.setContentType("text/plain; charset=UTF-8");
-            response.getWriter().write("AI configuration missing. Set APP_AI_ENDPOINT, APP_AI_MODEL and APP_AI_KEY first.");
+    if ("GET".equalsIgnoreCase(request.getMethod()) && "wstoken".equals(request.getParameter("action"))) {
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("application/json; charset=UTF-8");
+
+        if (currentUsername == null) {
+            response.setStatus(401);
+            response.getWriter().write("{\"success\":false,\"message\":\"unauthorized\"}");
             return;
         }
 
+        String maibotEndpoint = readConfig(application, "APP_MAIBOT_ENDPOINT", "app.maibot.endpoint");
+        String maibotToken = readConfig(application, "APP_MAIBOT_TOKEN", "app.maibot.token");
+        if (maibotEndpoint == null || maibotEndpoint.trim().isEmpty()) {
+            maibotEndpoint = "http://127.0.0.1:8001";
+        }
+
+        if (maibotToken == null || maibotToken.trim().isEmpty()) {
+            response.setStatus(500);
+            response.getWriter().write("{\"success\":false,\"message\":\"MaiBot token not configured\"}");
+            return;
+        }
+
+        HttpURLConnection connection = null;
+        InputStream upstream = null;
+        try {
+            Long chatUserId = findChatUserId(application, currentUsername);
+            if (chatUserId == null) {
+                response.setStatus(404);
+                response.getWriter().write("{\"success\":false,\"message\":\"user not found\"}");
+                return;
+            }
+
+            URL url = new URL(maibotEndpoint + "/api/webui/ws-token");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(API_TIMEOUT);
+            connection.setReadTimeout(API_TIMEOUT);
+            connection.setRequestProperty("Authorization", "Bearer " + maibotToken);
+
+            int status = connection.getResponseCode();
+            upstream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
+
+            String responseStr = "";
+            if (upstream != null) {
+                java.util.Scanner s = new java.util.Scanner(upstream, "UTF-8").useDelimiter("\\A");
+                responseStr = s.hasNext() ? s.next() : "";
+            }
+
+            if (status >= 200 && status < 300) {
+                // Return the ws endpoint and the token
+                String wsEndpoint = maibotEndpoint.replace("http://", "ws://").replace("https://", "wss://") + "/api/chat/ws";
+                String userId = "webui_user_" + chatUserId;
+
+                // responseStr should be something like {"success": true, "token": "temp_token", "expires_in": 60}
+                // We'll augment it with wsEndpoint and userId
+                String jsonOut = responseStr.trim();
+                if (jsonOut.endsWith("}")) {
+                    jsonOut = jsonOut.substring(0, jsonOut.length() - 1) +
+                              ",\"wsEndpoint\":\"" + jsonEscape(wsEndpoint) + "\"" +
+                              ",\"userId\":\"" + jsonEscape(userId) + "\"" +
+                              "}";
+                }
+                response.getWriter().write(jsonOut);
+            } else {
+                response.setStatus(502);
+                response.getWriter().write("{\"success\":false,\"message\":\"Failed to get ws-token: " + status + "\",\"details\":\"" + jsonEscape(responseStr) + "\"}");
+            }
+        } catch (Exception ex) {
+            application.log("MaiBot ws-token request failed.", ex);
+            response.setStatus(500);
+            response.getWriter().write("{\"success\":false,\"message\":\"Internal server error: " + jsonEscape(ex.getMessage()) + "\"}");
+        } finally {
+            if (upstream != null) {
+                try { upstream.close(); } catch (IOException ignore) {}
+            }
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+        return;
+    }
+
+    if ("POST".equalsIgnoreCase(request.getMethod()) && "chat".equals(request.getParameter("action"))) {
+        String prompt = request.getParameter("prompt");
+        Long requestedConversationId = parseConversationId(request.getParameter("conversationId"));
+
+        // MaiBot 接入：从环境变量或 web.xml 读取 MaiBot 配置
+        String maibotEndpoint = readConfig(application, "APP_MAIBOT_ENDPOINT", "app.maibot.endpoint");
+        String maibotToken    = readConfig(application, "APP_MAIBOT_TOKEN",    "app.maibot.token");
+        if (maibotEndpoint == null || maibotEndpoint.trim().isEmpty()) {
+            maibotEndpoint = "http://127.0.0.1:8001";
+        }
+
+        if (prompt == null || prompt.trim().isEmpty()) {
+            response.setStatus(400);
+            response.setContentType("text/plain; charset=UTF-8");
+            response.getWriter().write("prompt is required");
+            return;
+        }
+        if (maibotToken == null || maibotToken.trim().isEmpty()) {
+            response.setStatus(500);
+            response.setContentType("text/plain; charset=UTF-8");
+            response.getWriter().write("MaiBot token not configured. Set APP_MAIBOT_TOKEN first.");
+            return;
+        }
         if (currentUsername == null) {
             response.setStatus(401);
             response.setContentType("text/plain; charset=UTF-8");
@@ -568,6 +656,7 @@
                 return;
             }
 
+            // 维护 JSP 侧会话记录
             dbConnection = openConnection(application);
             ensureChatTables(dbConnection);
             conversationId = findOwnedConversation(dbConnection, chatUserId.longValue(), requestedConversationId);
@@ -578,66 +667,121 @@
                 userMessageId = insertMessage(dbConnection, conversationId, chatUserId, "user", prompt);
             }
 
-            connection = (HttpURLConnection) new URL(apiEndpoint).openConnection();
+            // 调用 MaiBot SSE 接口
+            // conversation_id 用 JSP 侧 conversationId 做隔离（可选）
+            String maibotUserId = "webui_user_" + chatUserId;
+            String maibotConvId = conversationId != null ? String.valueOf(conversationId.longValue()) : null;
+            StringBuilder sbPayload = new StringBuilder();
+            sbPayload.append("{\"content\":\"").append(jsonEscape(prompt)).append("\"");
+            sbPayload.append(",\"user_id\":\"").append(jsonEscape(maibotUserId)).append("\"");
+            sbPayload.append(",\"user_name\":\"").append(jsonEscape(currentUsername)).append("\"");
+            sbPayload.append(",\"timeout_seconds\":60.0");
+            if (maibotConvId != null) {
+                sbPayload.append(",\"conversation_id\":\"").append(jsonEscape(maibotConvId)).append("\"");
+            }
+            sbPayload.append("}");
+
+            connection = (HttpURLConnection) new URL(maibotEndpoint + "/api/chat/sse").openConnection();
             connection.setRequestMethod("POST");
             connection.setConnectTimeout(API_TIMEOUT);
             connection.setReadTimeout(API_TIMEOUT);
             connection.setDoOutput(true);
             connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
             connection.setRequestProperty("Accept", "text/event-stream");
-            connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+            connection.setRequestProperty("Authorization", "Bearer " + maibotToken);
 
-            String payload = "{\"model\":\"" + jsonEscape(apiModel) + "\",\"stream\":true,\"messages\":" + messagesJson + ",\"temperature\":0.7}";
             try (OutputStream requestStream = connection.getOutputStream()) {
-                requestStream.write(payload.getBytes(StandardCharsets.UTF_8));
+                requestStream.write(sbPayload.toString().getBytes(StandardCharsets.UTF_8));
                 requestStream.flush();
             }
 
             int status = connection.getResponseCode();
             upstream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
 
-            response.setStatus(status);
+            // 向前端输出 OpenAI 兼容的 SSE 格式
+            response.setStatus(200);
             response.setCharacterEncoding("UTF-8");
+            response.setContentType("text/event-stream; charset=UTF-8");
             response.setHeader("Cache-Control", "no-cache");
             response.setHeader("X-Accel-Buffering", "no");
             if (conversationId != null) {
                 response.setHeader("X-Conversation-Id", String.valueOf(conversationId.longValue()));
             }
-            String upstreamType = connection.getContentType();
-            response.setContentType((upstreamType != null && !upstreamType.isEmpty()) ? upstreamType : "text/event-stream; charset=UTF-8");
 
-            if (upstream != null) {
-                String rawPayload = pipeAndCollect(upstream, response.getOutputStream());
-                if (status >= 200 && status < 300 && conversationId != null) {
-                    String assistantContent = extractAssistantContent(rawPayload);
-                    Long assistantMessageId = null;
-                    if (!assistantContent.isEmpty()) {
-                        assistantMessageId = insertMessage(dbConnection, conversationId, null, "assistant", assistantContent);
+            if (upstream == null || status < 200 || status >= 300) {
+                // MaiBot 调用失败，返回错误 SSE 事件
+                response.getWriter().write("data: {\"choices\":[{\"delta\":{\"content\":\"[连接 MaiBot 失败，状态码: " + status + "]\"}}]}\n\n");
+                response.getWriter().write("data: [DONE]\n\n");
+                response.getWriter().flush();
+            } else {
+                // 直接透传 MaiBot SSE 给前端，前端按 MaiBot 格式解析
+                java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(upstream, StandardCharsets.UTF_8)
+                );
+                java.io.PrintWriter writer = response.getWriter();
+                StringBuilder assistantContent = new StringBuilder();
+                String eventType = null;
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    if (line.startsWith("event:")) {
+                        eventType = line.substring(6).trim();
+                        writer.write(line + "\n");
+                        writer.flush();
+                    } else if (line.startsWith("data:")) {
+                        String data = line.substring(5).trim();
+                        // 收集 chunk 内容用于存库
+                        if ("chunk".equals(eventType)) {
+                            int ci = data.indexOf("\"content\"");
+                            if (ci >= 0) {
+                                int qi = data.indexOf('"', ci + 9);
+                                if (qi >= 0) {
+                                    qi++;
+                                    int qe = data.indexOf('"', qi);
+                                    if (qe > qi) {
+                                        assistantContent.append(decodeJsonString(data.substring(qi, qe)));
+                                    }
+                                }
+                            }
+                        }
+                        // end 事件：收集 full_text 作为最终回复（更可靠）
+                        if ("end".equals(eventType)) {
+                            int fi = data.indexOf("\"full_text\"");
+                            if (fi >= 0) {
+                                int qi = data.indexOf('"', fi + 11);
+                                if (qi >= 0) {
+                                    qi++;
+                                    int qe = data.indexOf('"', qi);
+                                    if (qe > qi) {
+                                        assistantContent = new StringBuilder(decodeJsonString(data.substring(qi, qe)));
+                                    }
+                                }
+                            }
+                        }
+                        writer.write(line + "\n");
+                        writer.flush();
+                        eventType = null;
+                    } else {
+                        // 空行等直接透传
+                        writer.write(line + "\n");
+                        writer.flush();
                     }
-                    insertModelLog(
-                        dbConnection,
-                        conversationId,
-                        assistantMessageId,
-                        apiModel,
-                        "SUCCESS",
-                        System.currentTimeMillis() - startedAt,
-                        null
-                    );
+                }
+
+                // 写入 assistant 回复到数据库
+                String replyText = assistantContent.toString().trim();
+                if (!replyText.isEmpty() && conversationId != null) {
+                    Long assistantMessageId = insertMessage(dbConnection, conversationId, null, "assistant", replyText);
+                    insertModelLog(dbConnection, conversationId, assistantMessageId, "maibot", "SUCCESS",
+                        System.currentTimeMillis() - startedAt, null);
                 }
             }
         } catch (Exception ex) {
-            application.log("AI chat request failed.", ex);
+            application.log("MaiBot chat request failed.", ex);
             if (dbConnection != null && conversationId != null) {
                 try {
-                    insertModelLog(
-                        dbConnection,
-                        conversationId,
-                        userMessageId,
-                        apiModel,
-                        "FAILED",
-                        System.currentTimeMillis() - startedAt,
-                        ex.getMessage()
-                    );
+                    insertModelLog(dbConnection, conversationId, userMessageId, "maibot", "FAILED",
+                        System.currentTimeMillis() - startedAt, ex.getMessage());
                 } catch (SQLException ignore) {
                 }
             }
@@ -645,7 +789,7 @@
                 response.reset();
                 response.setStatus(502);
                 response.setContentType("text/plain; charset=UTF-8");
-                response.getWriter().write("API request failed: " + ex.getMessage());
+                response.getWriter().write("MaiBot request failed: " + ex.getMessage());
             }
         } finally {
             if (upstream != null) {

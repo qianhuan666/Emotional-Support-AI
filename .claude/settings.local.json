@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find d:/git_code/Emotional-Support-AI -name .env* -o -name config.toml -o -name *.env)",
+      "Bash(sc query:*)",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
+    ]
+  }
+}

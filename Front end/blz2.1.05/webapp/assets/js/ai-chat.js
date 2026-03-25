@@ -1,9 +1,6 @@
-﻿(() => {
+(() => {
     const MAX = 1000;
-    const CHAT_URL = "api/ai-chat.jsp?action=chat";
-    const LIST_URL = "api/ai-chat.jsp?action=list";
-    const HISTORY_URL = "api/ai-chat.jsp?action=history";
-    const DELETE_URL = "api/ai-chat.jsp?action=delete";
+    const WSTOKEN_URL = "api/ai-chat.jsp?action=wstoken";
 
     const elements = {
         messageList: document.getElementById("messageList"),
@@ -19,11 +16,12 @@
     };
 
     const state = {
-        conversationId: null,
         messages: [],
-        conversations: [],
-        controller: null,
-        streaming: false
+        ws: null,
+        connected: false,
+        userId: null,
+        reconnectTimer: null,
+        reconnectDelay: 2000
     };
 
     function esc(value) {
@@ -31,7 +29,7 @@
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
-            .replace(/\"/g, "&quot;")
+            .replace(/"/g, "&quot;")
             .replace(/'/g, "&#39;");
     }
 
@@ -79,170 +77,118 @@
         scrollToBottom();
     }
 
-    function renderConversationList() {
-        if (!elements.conversationList) {
-            return;
-        }
-
-        if (!state.conversations.length) {
-            elements.conversationList.innerHTML = '<div class="soft-label">还没有保存过会话</div>';
-            return;
-        }
-
-        elements.conversationList.innerHTML = state.conversations.map(item => `
-            <div class="conversation-item ${state.conversationId === item.id ? "active" : ""}" data-id="${item.id}">
-                <span class="conversation-title">${esc(item.title)}</span>
-                <span class="conversation-time">${esc(item.updatedAt || "")}</span>
-            </div>
-        `).join("");
-
-        elements.conversationList.querySelectorAll(".conversation-item").forEach(node => {
-            node.addEventListener("click", () => {
-                const id = Number(node.dataset.id);
-                loadHistory(id);
-            });
-            node.addEventListener("contextmenu", async event => {
-                event.preventDefault();
-                const id = Number(node.dataset.id);
-                if (!window.confirm("确定要删除这个会话吗？")) {
-                    return;
-                }
-                await fetch(DELETE_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
-                    body: new URLSearchParams({ conversationId: String(id) })
-                });
-                if (state.conversationId === id) {
-                    state.conversationId = null;
-                    state.messages = [];
-                    renderMessages();
-                }
-                await loadConversationList();
-            });
-        });
-    }
-
-    async function loadConversationList() {
-        try {
-            const response = await fetch(LIST_URL, { cache: "no-store" });
-            if (!response.ok) {
-                return;
-            }
-            const data = await response.json();
-            state.conversations = Array.isArray(data.conversations) ? data.conversations : [];
-            renderConversationList();
-        } catch (error) {
+    function setConnected(connected) {
+        state.connected = connected;
+        elements.sendBtn.disabled = !connected;
+        elements.stopBtn.classList.add("hidden");
+        if (elements.conversationList) {
+            elements.conversationList.innerHTML = connected
+                ? '<div class="soft-label">已连接到 MaiBot</div>'
+                : '<div class="soft-label">正在连接 MaiBot...</div>';
         }
     }
 
-    async function loadHistory(conversationId) {
-        const query = conversationId ? `${HISTORY_URL}&conversationId=${conversationId}` : HISTORY_URL;
-        try {
-            const response = await fetch(query, { cache: "no-store" });
-            if (!response.ok) {
-                return;
-            }
-            const data = await response.json();
-            state.conversationId = data.conversationId || null;
-            state.messages = Array.isArray(data.messages) ? data.messages : [];
-            renderMessages();
-            renderConversationList();
-        } catch (error) {
-        }
-    }
-
-    function setStreaming(streaming) {
-        state.streaming = streaming;
-        elements.sendBtn.disabled = streaming;
-        elements.stopBtn.classList.toggle("hidden", !streaming);
-    }
-
-    async function sendMessage() {
-        const content = (elements.messageInput.value || "").trim();
-        if (!content || state.streaming) {
-            return;
-        }
-
-        state.messages.push({ role: "user", content });
-        state.messages.push({ role: "assistant", content: "" });
-        elements.messageInput.value = "";
+    function addMessage(role, content) {
+        state.messages.push({ role, content });
         renderMessages();
-        setStreaming(true);
+    }
 
-        const assistantMessage = state.messages[state.messages.length - 1];
-        const controller = new AbortController();
-        state.controller = controller;
+    function handleBotMessage(data) {
+        // data.content is the full message text
+        const content = data.content || "";
+        if (!content) return;
+        addMessage("assistant", content);
+    }
 
-        try {
-            const response = await fetch(CHAT_URL, {
-                method: "POST",
-                headers: {
-                    "Accept": "text/event-stream",
-                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
-                },
-                body: new URLSearchParams({
-                    messages: JSON.stringify(state.messages.map(item => ({ role: item.role, content: item.content }))),
-                    prompt: content,
-                    conversationId: state.conversationId ? String(state.conversationId) : ""
-                }),
-                signal: controller.signal
-            });
+    function handleHistory(data) {
+        const msgs = Array.isArray(data.messages) ? data.messages : [];
+        state.messages = msgs.map(m => ({
+            role: m.is_bot ? "assistant" : "user",
+            content: m.content || ""
+        }));
+        renderMessages();
+    }
 
-            const conversationHeader = response.headers.get("X-Conversation-Id");
-            if (conversationHeader) {
-                state.conversationId = Number(conversationHeader);
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder("utf-8");
-            let buffer = "";
-            let done = false;
-
-            while (!done) {
-                const part = await reader.read();
-                done = part.done;
-                buffer += decoder.decode(part.value || new Uint8Array(), { stream: !done });
-                const lines = buffer.split(/\r?\n/);
-                buffer = lines.pop() || "";
-
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed.startsWith("data:")) {
-                        continue;
-                    }
-                    const data = trimmed.slice(5).trim();
-                    if (!data || data === "[DONE]") {
-                        continue;
-                    }
-                    try {
-                        const json = JSON.parse(data);
-                        const delta = json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.content
-                            ? json.choices[0].delta.content
-                            : "";
-                        if (delta) {
-                            assistantMessage.content += delta;
-                            renderMessages();
-                        }
-                    } catch (error) {
-                    }
-                }
-            }
-
-            await loadConversationList();
-        } catch (error) {
-            assistantMessage.content = assistantMessage.content || "当前回复失败，请稍后再试。";
-            renderMessages();
-        } finally {
-            state.controller = null;
-            setStreaming(false);
+    function connect(wsEndpoint, token, userId) {
+        if (state.ws) {
+            state.ws.onclose = null;
+            state.ws.close();
+            state.ws = null;
         }
+
+        state.userId = userId;
+        const url = `${wsEndpoint}?token=${encodeURIComponent(token)}&user_id=${encodeURIComponent(userId)}&user_name=用户`;
+
+        const ws = new WebSocket(url);
+        state.ws = ws;
+
+        ws.onopen = () => {
+            state.reconnectDelay = 2000;
+            setConnected(true);
+        };
+
+        ws.onmessage = event => {
+            let data;
+            try {
+                data = JSON.parse(event.data);
+            } catch (e) {
+                return;
+            }
+
+            switch (data.type) {
+                case "bot_message":
+                    handleBotMessage(data);
+                    break;
+                case "history":
+                    handleHistory(data);
+                    break;
+                case "user_message":
+                    if (data.sender && data.sender.user_id !== state.userId) {
+                        addMessage("user", data.content);
+                    }
+                    break;
+                case "typing":
+                    // could show a typing indicator; skip for now
+                    break;
+                case "system":
+                    // system messages — ignore silently
+                    break;
+                case "session_info":
+                    if (data.user_id) state.userId = data.user_id;
+                    break;
+                case "error":
+                    addMessage("assistant", data.content || "发生错误，请稍后再试。");
+                    break;
+            }
+        };
+
+        ws.onerror = () => {
+            setConnected(false);
+        };
+
+        ws.onclose = () => {
+            setConnected(false);
+            // auto-reconnect with fresh token
+            state.reconnectTimer = setTimeout(() => init(), state.reconnectDelay);
+            state.reconnectDelay = Math.min(state.reconnectDelay * 2, 30000);
+        };
+    }
+
+    function sendMessage() {
+        const content = (elements.messageInput.value || "").trim();
+        if (!content || !state.connected || !state.ws) return;
+
+        // optimistic render
+        addMessage("user", content);
+        elements.messageInput.value = "";
+        updateCounters();
+
+        state.ws.send(JSON.stringify({ type: "message", content }));
     }
 
     function newConversation() {
-        state.conversationId = null;
         state.messages = [];
         renderMessages();
-        renderConversationList();
         elements.messageInput.focus();
     }
 
@@ -255,17 +201,22 @@
     });
     elements.sendBtn.addEventListener("click", sendMessage);
     elements.newChatBtn.addEventListener("click", newConversation);
-    elements.stopBtn.addEventListener("click", () => {
-        if (state.controller) {
-            state.controller.abort();
-        }
-        setStreaming(false);
-    });
 
-    (async function init() {
+    async function init() {
+        setConnected(false);
         updateCounters();
         toggleEmpty();
-        await loadConversationList();
-        await loadHistory();
-    })();
+
+        try {
+            const res = await fetch(WSTOKEN_URL, { cache: "no-store" });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data.success || !data.token || !data.wsEndpoint) return;
+            connect(data.wsEndpoint, data.token, data.userId || "webui_user_anon");
+        } catch (e) {
+            // retry handled by reconnect logic
+        }
+    }
+
+    init();
 })();
